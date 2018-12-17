@@ -1,6 +1,0 @@
-*.js linguist-language=c++
-*.css linguist-language=c++
-*.html linguist-language=c++
-*.png linguist-language=c++
-*.jpg linguist-language=c++
-*.cpp linguist-language=c++
