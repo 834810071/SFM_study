@@ -340,7 +340,7 @@ int main( int argc, char** argv)
 
                 Mat P(3, 4, CV_64F);
                 P(Range(0, 3), Range(0, 3)) = R.t();
-                P(Range(0, 3), Range(0, 4)) = -R.t() * t;
+                P(Range(0, 3), Range(3, 4)) = -R.t() * t;
                 P = K * P;
 
                 cur.P = P;
@@ -506,6 +506,71 @@ int main( int argc, char** argv)
         cout << "final graph error = " << graph.error(result) << endl;
 
     }
+
+
+
+    // 创建PMVS2处理的输出文件
+    {
+        using namespace gtsam;
+
+        Matrix3 K_refined = result.at<Cal3_S2>(Symbol('K', 0)).K();
+
+        cout << endl << "final camera matrix K" << endl << K_refined << endl;
+
+        // 转换为全分辨率相机矩阵
+        K_refined(0, 0) *= IMAGE_DOWNSAMPLE;
+        K_refined(1, 1) *= IMAGE_DOWNSAMPLE;
+        K_refined(0, 2) *= IMAGE_DOWNSAMPLE;
+        K_refined(1, 2) *= IMAGE_DOWNSAMPLE;
+
+        system("mkdir -p root/visualize");
+        system("mkdir -p root/txt");
+        system("mkdir -p root/models");
+
+        ofstream option("root/options.txt");
+
+        option << "timages  -1 " << 0 << " " << (SFM.img_pose.size()-1) << endl;;
+        option << "oimages 0" << endl;
+        option << "level 1" << endl;
+
+        option.close();
+
+        for (size_t i=0; i < SFM.img_pose.size(); i++) {
+            Eigen::Matrix<double, 3, 3> R;
+            Eigen::Matrix<double, 3, 1> t;
+            Eigen::Matrix<double, 3, 4> P;
+            char str[256];
+
+            R = result.at<Pose3>(Symbol('x', i)).rotation().matrix();
+            t = result.at<Pose3>(Symbol('x', i)).translation().vector();
+
+            P.block(0, 0, 3, 3) = R.transpose();
+            P.col(3) = -R.transpose()*t;
+            P = K_refined*P;
+
+            sprintf(str, "cp -f %s root/visualize/%04d.jpg", IMAGES[i].c_str(), (int)i);
+            system(str);
+            //imwrite(str, SFM.img_pose[i].img);
+
+
+            sprintf(str, "root/txt/%04d.txt", (int)i);
+            ofstream out(str);
+
+            out << "CONTOUR" << endl;
+
+            for (int j=0; j < 3; j++) {
+                for (int k=0; k < 4; k++) {
+                    out << P(j, k) << " ";
+                }
+                out << endl;
+            }
+        }
+
+        cout << endl;
+        cout << "You can now run pmvs2 on the results eg. PATH_TO_PMVS_BINARY/pmvs2 root/ options.txt" << endl;
+    }
+
+
 
 
     return 0;
